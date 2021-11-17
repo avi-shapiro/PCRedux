@@ -126,9 +126,9 @@
 #'   "sd_plateau" \tab describes the standard deviation in the late phase of an amplification curve (last five cycles). With ideal PCRs, this corresponds to the plateau phase. \tab numeric \cr
 #' }
 #'
-#' @return gives a \code{data.frame} (S3 class, type of \code{list}) as output 
+#' @return gives a \code{data.frame} (S3 class, type of \code{list}) as output
 #' for the curve features
-#' 
+#'
 #' @details Details can be found in the vignette.
 #' @importFrom qpcR pcrfit
 #' @examples
@@ -397,7 +397,19 @@ pcrfit_single <- function(x) {
 
   # The l4 model
   res_pcrfit <- armor(qpcR::pcrfit(xy_tmp, 1, 2, model = l4))
-  if (length(res_pcrfit) != 1) {
+  #below added by MJ as safeguard (otherwise exception occurs in subsequent code for certain data)
+  cycmaxD2 <- numeric(0)
+  if(length(res_pcrfit) != 1){
+    EFFobj <- qpcR::eff(res_pcrfit)
+    SEQ <- EFFobj$eff.x
+    D2seq <- res_pcrfit$MODEL$d2(SEQ, coef(res_pcrfit))
+    D2seq[!is.finite(D2seq)] <- NA
+    maxD2 <- which.max(D2seq)
+    cycmaxD2 <- SEQ[maxD2]
+  }
+  #above (& the following if) added by MJ as safeguard (otherwise exception occurs in subsequent code for certain data)
+
+  if (length(res_pcrfit) != 1 & length(cycmaxD2) != 0) {
     res_coef_pcrfit <- coefficients(res_pcrfit)
     res_AICc_l4 <- qpcR::AICc(res_pcrfit)
     res_iterations <- res_pcrfit[["convInfo"]][["finIter"]]
