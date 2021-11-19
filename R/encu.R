@@ -5,8 +5,8 @@
 #' features of a large amplification curve data set.
 #' The \code{\link[PCRedux]{pcrfit_single}} is
 #' performing the analysis for a single process.
-#' 
-#' @return gives a \code{data.frame} vector (S3 class, type of \code{list}) as 
+#'
+#' @return gives a \code{data.frame} vector (S3 class, type of \code{list}) as
 #' output for features
 #'
 #' @param data is the data set containing the cycles and fluorescence amplitudes.
@@ -18,7 +18,7 @@
 #' identical to the \code{\link[PCRedux]{pcrfit_single}} function.
 #' @author Stefan Roediger, Michal Burdukiewcz
 #' @keywords slope intercept preprocessing normalization
-#' @importFrom pbapply pblapply
+#' @importFrom pbapply pblapply parallel
 #' @examples
 #'
 #' # Calculate curve features of an amplification curve data. Note that not all
@@ -34,20 +34,31 @@
 #' @export
 
 encu <- function(data, detection_chemistry = NA, device = NA) {
-  # Determine the number of available cores and register them
-
   # Prepare the data for further processing
-  # Normalize RFU values to the alpha quantiles (0.999)
+
   cycles <- data.frame(cycles = data[, 1])
   data_RFU <- data.frame(data[, -1, drop = FALSE])
   ncol_data_RFU <- ncol(data_RFU)
 
+  # Determine the number of available cores and register them
+  n_cores <- parallel::detectCores()
+  if (.Platform$OS.type != "windows") {
+    cl <- n_cores - 2
+  }
+  else {
+    cl <- makeCluster(n_cores - 2)
+    clusterExport(cl, c("ncol_data_RFU", "data_RFU"))
+  }
+
   run_res <- do.call(rbind, pblapply(1L:ncol_data_RFU, function(ith_run) {
     pcrfit_single(data_RFU[, ith_run])
-  }))
-  
+  }, cl = cl))
+
+  if (.Platform$OS.type == "windows") {
+    stopCluster(cl)
+  }
   rownames(run_res) <- NULL
-  
+
   cbind(runs = colnames(data_RFU), run_res,
         detection_chemistry = detection_chemistry,
         device = device)
